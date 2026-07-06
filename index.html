@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ancestry Fan Chart Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;700&family=Inter:wght@400;700&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Ancestry Fan Chart Generator</h1>
+            <p>Create beautiful interactive fan charts from your GEDCOM files</p>
+        </header>
+
+        <div class="controls-panel">
+            <div class="file-upload">
+                <label for="gedcom-file" class="btn btn-primary">Upload GEDCOM File</label>
+                <input type="file" id="gedcom-file" accept=".ged,.gedcom">
+                <span class="file-name" id="file-name">No file selected</span>
+            </div>
+
+            <div class="settings-section">
+                <h3>Settings</h3>
+
+                <div class="setting-group">
+                    <label for="center-person">Center Person</label>
+                    <select id="center-person">
+                        <option value="">Select a person...</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label for="generations">Generations: <span id="generations-value">5</span></label>
+                    <input type="range" id="generations" min="1" max="8" value="5">
+                </div>
+
+                <div class="setting-group">
+                    <label for="fan-angle">Fan Angle: <span id="fan-angle-value">360°</span></label>
+                    <input type="range" id="fan-angle" min="180" max="360" step="10" value="360">
+                </div>
+
+                <div class="setting-group">
+                    <label for="font-size">Font Size: <span id="font-size-value">10px</span></label>
+                    <input type="range" id="font-size" min="6" max="20" value="10">
+                </div>
+
+                <div class="setting-group">
+                    <label for="font-family">Font Family</label>
+                    <select id="font-family">
+                        <optgroup label="Google Fonts — Serif">
+                            <option value="'EB Garamond', serif">EB Garamond</option>
+                            <option value="'Lora', serif">Lora</option>
+                            <option value="'Merriweather', serif">Merriweather</option>
+                            <option value="'Playfair Display', serif">Playfair Display</option>
+                            <option value="'Roboto Slab', serif">Roboto Slab</option>
+                        </optgroup>
+                        <optgroup label="Google Fonts — Sans-Serif">
+                            <option value="'Inter', sans-serif">Inter</option>
+                        </optgroup>
+                        <optgroup label="System Fonts">
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                            <option value="'Courier New', monospace">Courier New</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="Verdana, sans-serif">Verdana</option>
+                            <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label for="color-scheme">Color Scheme</label>
+                    <select id="color-scheme">
+                        <option value="classic">Classic (Gender)</option>
+                        <option value="generation">Generation</option>
+                        <option value="monochrome">Monochrome</option>
+                        <option value="pastel">Pastel</option>
+                        <option value="flags">Flags (Country)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group checkbox-group">
+                    <label><input type="checkbox" id="show-birth-year" checked> Show Birth Year</label>
+                </div>
+
+                <div class="setting-group checkbox-group">
+                    <label><input type="checkbox" id="show-death-year" checked> Show Death Year</label>
+                </div>
+
+                <div class="setting-group checkbox-group">
+                    <label><input type="checkbox" id="show-country"> Show Country of Origin</label>
+                </div>
+
+                <div class="setting-group checkbox-group">
+                    <label><input type="checkbox" id="show-descendants"> Show Descendants</label>
+                </div>
+
+                <button id="generate-chart" class="btn btn-success" disabled>Generate Chart</button>
+                <button id="download-svg" class="btn btn-secondary" disabled>Download SVG</button>
+                <button id="save-chart" class="btn btn-secondary" disabled>Save Chart</button>
+                <button id="edit-data" class="btn btn-secondary" disabled>Edit Data</button>
+
+                <div class="file-upload">
+                    <label for="load-chart-file" class="btn btn-secondary">Open Saved Chart</label>
+                    <input type="file" id="load-chart-file" accept=".fanchart">
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <svg id="fan-chart"></svg>
+        </div>
+
+        <div id="data-editor-overlay" class="modal-overlay hidden">
+            <div class="data-editor">
+                <div class="details-header">
+                    <h3>Edit Data</h3>
+                    <button id="close-editor" class="close-btn">&times;</button>
+                </div>
+                <div class="data-editor-content">
+                    <table id="data-editor-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Birth Year</th>
+                                <th>Death Year</th>
+                                <th>Birth Country</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="data-editor-footer">
+                    <button id="editor-apply" class="btn btn-success">Apply Changes</button>
+                    <button id="editor-cancel" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="person-details" class="person-details hidden">
+            <div class="details-header">
+                <h3>Person Details</h3>
+                <button id="close-details" class="close-btn">&times;</button>
+            </div>
+            <div class="details-content"></div>
+        </div>
+    </div>
+
+    <script src="gedcom-parser.js"></script>
+    <script src="fan-chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

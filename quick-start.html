@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ancestry Fan Chart - Quick Start Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #764ba2;
+            margin-top: 30px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .feature-list {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .feature-list li {
+            margin: 10px 0;
+        }
+        .screenshot {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌳 Ancestry Fan Chart Generator</h1>
+    
+    <p>Welcome! This application creates beautiful, interactive fan charts from your GEDCOM genealogy files.</p>
+
+    <a href="index.html" class="btn">Launch Application →</a>
+
+    <h2>What You'll Need</h2>
+    <ul>
+        <li>A GEDCOM (.ged) file exported from your genealogy software (Ancestry, MyHeritage, FamilySearch, etc.)</li>
+        <li>A modern web browser</li>
+    </ul>
+
+    <h2>Quick Start</h2>
+    <ol>
+        <li>Click the "Launch Application" button above</li>
+        <li>Click "Upload GEDCOM File" and select your .ged file</li>
+        <li>Select a center person from the dropdown menu</li>
+        <li>Adjust settings as desired (generations, fonts, colors)</li>
+        <li>Click "Generate Chart" to create your fan chart</li>
+        <li>Click on any person to view their details</li>
+        <li>Download your chart as SVG when ready</li>
+    </ol>
+
+    <h2>Features</h2>
+    <div class="feature-list">
+        <ul>
+            <li>✨ <strong>Interactive Charts</strong> - Click any person to see details</li>
+            <li>🎨 <strong>Customizable</strong> - Choose colors, fonts, and what information to display</li>
+            <li>📊 <strong>Flexible</strong> - Show 1-8 generations of ancestors</li>
+            <li>👨‍👩‍👧‍👦 <strong>Descendants</strong> - Optionally include descendants</li>
+            <li>💾 <strong>Export</strong> - Download as SVG for printing or further editing</li>
+            <li>🔒 <strong>Private</strong> - All processing happens in your browser - no data is uploaded</li>
+        </ul>
+    </div>
+
+    <h2>Exporting GEDCOM from Popular Services</h2>
+    
+    <h3>Ancestry.com</h3>
+    <ol>
+        <li>Go to your family tree</li>
+        <li>Click "Trees" → "View Tree"</li>
+        <li>Click the tree name → "Tree Settings"</li>
+        <li>Select "Export tree" → "Export to GEDCOM"</li>
+    </ol>
+
+    <h3>MyHeritage</h3>
+    <ol>
+        <li>Go to Family Tree → Manage tree</li>
+        <li>Click "Download" → "Export to GEDCOM"</li>
+    </ol>
+
+    <h3>FamilySearch</h3>
+    <ol>
+        <li>Sign in and go to Family Tree</li>
+        <li>Click on a person → "Tools" → "Download"</li>
+        <li>Select GEDCOM format</li>
+    </ol>
+
+    <h2>Tips for Best Results</h2>
+    <ul>
+        <li>Start with 4-5 generations for optimal readability</li>
+        <li>Use larger font sizes for printing</li>
+        <li>Try different color schemes to find your preference</li>
+        <li>Enable "Show Country" if you have international ancestry</li>
+        <li>Export as SVG to edit in vector graphics programs like Adobe Illustrator or Inkscape</li>
+    </ul>
+
+    <h2>For Developers</h2>
+    <p>This is a pure client-side application built with vanilla JavaScript. To customize or extend:</p>
+    <ul>
+        <li><code>gedcom-parser.js</code> - Handles GEDCOM file parsing</li>
+        <li><code>fan-chart.js</code> - Generates the SVG fan chart</li>
+        <li><code>app.js</code> - Main application logic and UI</li>
+        <li><code>styles.css</code> - Styling and layout</li>
+    </ul>
+
+    <h2>Privacy & Security</h2>
+    <p>Your family data is precious. This application:</p>
+    <ul>
+        <li>✅ Runs entirely in your browser</li>
+        <li>✅ Does not upload your GEDCOM file anywhere</li>
+        <li>✅ Does not store any data on servers</li>
+        <li>✅ Does not require an account or login</li>
+        <li>✅ Can be used completely offline</li>
+    </ul>
+
+    <h2>Support</h2>
+    <p>Having trouble? Check these common solutions:</p>
+    <ul>
+        <li><strong>Chart not generating?</strong> Make sure you've selected a center person</li>
+        <li><strong>File won't upload?</strong> Ensure it's a valid .ged GEDCOM file</li>
+        <li><strong>Text overlapping?</strong> Try reducing the number of generations or increasing font size</li>
+        <li><strong>Performance issues?</strong> Large family trees may take time to process</li>
+    </ul>
+
+    <hr style="margin: 40px 0; border: none; border-top: 2px solid #eee;">
+
+    <a href="index.html" class="btn">Ready to Start? Launch Application →</a>
+
+    <p style="text-align: center; color: #999; margin-top: 40px;">
+        Made with ❤️ for family history enthusiasts
+    </p>
+</body>
+</html>
