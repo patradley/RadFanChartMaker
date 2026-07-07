@@ -201,6 +201,39 @@ class GedcomParser {
         return children;
     }
 
+    getSpouses(individualId) {
+        const individual = this.individuals.get(individualId);
+        if (!individual || individual.familySpouse.length === 0) {
+            return [];
+        }
+
+        const spouses = [];
+        for (const familyId of individual.familySpouse) {
+            const family = this.families.get(familyId);
+            if (!family) continue;
+
+            const spouseId = family.husband === individualId ? family.wife
+                : family.wife === individualId ? family.husband
+                : null;
+
+            spouses.push({
+                individual: spouseId ? this.individuals.get(spouseId) : null,
+                familyId
+            });
+        }
+
+        return spouses;
+    }
+
+    getFamilyChildren(familyId) {
+        const family = this.families.get(familyId);
+        if (!family || !family.children) return [];
+
+        return family.children
+            .map(childId => this.individuals.get(childId))
+            .filter(Boolean);
+    }
+
     getAncestors(individualId, generations) {
         const ancestors = [];
         const queue = [{ individual: this.individuals.get(individualId), generation: 0 }];

@@ -14,7 +14,8 @@ class FanChart {
             showCountry: false,
             showDescendants: false,
             colorScheme: 'classic',
-            fanAngle: 360
+            fanAngle: 360,
+            descendantAngle: 90
         };
         
         this.colorSchemes = {
@@ -137,12 +138,17 @@ class FanChart {
     drawAncestorsFan(ancestors, maxGenerations) {
         // Group ancestors by generation
         const byGeneration = new Array(maxGenerations).fill(null).map(() => []);
-        
+
         for (const { individual, generation } of ancestors) {
             if (generation > 0 && generation < maxGenerations) {
                 byGeneration[generation].push(individual);
             }
         }
+
+        // Leave room for the descendants wedge below so the two never overlap
+        const fanAngle = this.config.showDescendants
+            ? Math.min(this.config.fanAngle, 360 - this.config.descendantAngle)
+            : this.config.fanAngle;
 
         // Draw each generation
         for (let gen = 1; gen < maxGenerations; gen++) {
@@ -153,8 +159,8 @@ class FanChart {
             const outerRadius = innerRadius + this.config.radiusIncrement;
 
             // Calculate positions for this generation
-            const positions = this.calculateAncestorPositions(gen, maxGenerations);
-            
+            const positions = this.calculateAncestorPositions(gen, maxGenerations, fanAngle);
+
             individuals.forEach((individual, index) => {
                 if (index < positions.length) {
                     this.drawPersonSegment(
@@ -170,10 +176,10 @@ class FanChart {
         }
     }
 
-    calculateAncestorPositions(generation, maxGenerations) {
+    calculateAncestorPositions(generation, maxGenerations, fanAngleDeg) {
         // Each generation doubles the number of positions
         const numPositions = Math.pow(2, generation);
-        const fanAngleRad = (this.config.fanAngle * Math.PI) / 180;
+        const fanAngleRad = (fanAngleDeg * Math.PI) / 180;
         const anglePerPerson = fanAngleRad / numPositions;
 
         // Center the fan at 12 o'clock (-PI/2)
@@ -345,18 +351,47 @@ class FanChart {
     }
 
     drawDescendantsFan(centerPerson) {
-        const children = this.parser.getChildren(centerPerson.id);
-        if (children.length === 0) return;
+        const descendantAngleRad = (this.config.descendantAngle * Math.PI) / 180;
+        // Centered at 6 o'clock (straight down), opposite the ancestors fan
+        const startOffset = Math.PI / 2 - descendantAngleRad / 2;
 
-        const innerRadius = this.config.innerRadius;
-        const outerRadius = innerRadius + this.config.radiusIncrement;
-        const anglePerChild = (2 * Math.PI) / children.length;
+        const spouseInner = this.config.innerRadius;
+        const spouseOuter = spouseInner + this.config.radiusIncrement;
+        const childOuter = spouseOuter + this.config.radiusIncrement;
 
-        children.forEach((child, index) => {
-            const startAngle = index * anglePerChild + Math.PI / 2;
-            const endAngle = (index + 1) * anglePerChild + Math.PI / 2;
-            
-            this.drawPersonSegment(child, startAngle, endAngle, innerRadius, outerRadius, -1);
+        const spouses = this.parser.getSpouses(centerPerson.id);
+
+        // No recorded spouse/family — fall back to drawing children directly
+        if (spouses.length === 0) {
+            const children = this.parser.getChildren(centerPerson.id);
+            if (children.length === 0) return;
+            this.drawDescendantRow(children, startOffset, startOffset + descendantAngleRad, spouseInner, spouseOuter, -1);
+            return;
+        }
+
+        const anglePerSpouse = descendantAngleRad / spouses.length;
+
+        spouses.forEach((spouse, index) => {
+            const spouseStart = startOffset + index * anglePerSpouse;
+            const spouseEnd = spouseStart + anglePerSpouse;
+
+            if (spouse.individual) {
+                this.drawPersonSegment(spouse.individual, spouseStart, spouseEnd, spouseInner, spouseOuter, -1);
+            }
+
+            const children = this.parser.getFamilyChildren(spouse.familyId);
+            this.drawDescendantRow(children, spouseStart, spouseEnd, spouseOuter, childOuter, -2);
+        });
+    }
+
+    drawDescendantRow(people, startAngle, endAngle, innerRadius, outerRadius, generation) {
+        if (people.length === 0) return;
+
+        const anglePerPerson = (endAngle - startAngle) / people.length;
+        people.forEach((person, index) => {
+            const personStart = startAngle + index * anglePerPerson;
+            const personEnd = personStart + anglePerPerson;
+            this.drawPersonSegment(person, personStart, personEnd, innerRadius, outerRadius, generation);
         });
     }
 
