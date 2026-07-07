@@ -505,16 +505,17 @@ function showNotification(message, type) {
     toast.style.right = '20px';
     toast.style.padding = '15px 20px';
     toast.style.borderRadius = '8px';
-    toast.style.color = 'white';
-    toast.style.fontWeight = 'bold';
+    toast.style.color = '#FCF9F2';
+    toast.style.fontFamily = "'Hanken Grotesk', system-ui, -apple-system, sans-serif";
+    toast.style.fontWeight = '600';
     toast.style.zIndex = '10000';
-    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    toast.style.boxShadow = '0 2px 6px rgba(46,42,36,0.08), 0 4px 12px rgba(46,42,36,0.05)';
     toast.textContent = message;
-    
+
     if (type === 'success') {
-        toast.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
+        toast.style.background = '#567A4C';
     } else {
-        toast.style.background = 'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)';
+        toast.style.background = '#8F3E34';
     }
     
     document.body.appendChild(toast);

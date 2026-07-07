@@ -36,7 +36,16 @@ class FanChart {
                 male: '#A8D8EA',
                 female: '#FFCBCB',
                 unknown: '#E8E8E8'
-            }
+            },
+            heritage: {
+                male: '#B4623F',
+                female: '#5A6B52',
+                unknown: '#968C7B'
+            },
+            archival: [
+                '#B4623F', '#6E7F63', '#C09B45', '#8A4630',
+                '#4A5842', '#A9822F', '#C67C5B', '#746B5D'
+            ]
         };
 
         this.flagPatterns = {};
@@ -393,8 +402,8 @@ class FanChart {
                 return 'url(#flag-' + code + ')';
             }
             return '#95A5A6';
-        } else if (scheme === 'generation') {
-            const colors = this.colorSchemes.generation;
+        } else if (Array.isArray(this.colorSchemes[scheme])) {
+            const colors = this.colorSchemes[scheme];
             const colorIndex = Math.abs(generation) % colors.length;
             return colors[colorIndex];
         } else {
