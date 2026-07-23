@@ -36,7 +36,16 @@ class FanChart {
                 male: '#A8D8EA',
                 female: '#FFCBCB',
                 unknown: '#E8E8E8'
-            }
+            },
+            heritage: {
+                male: '#B4623F',
+                female: '#5A6B52',
+                unknown: '#968C7B'
+            },
+            archival: [
+                '#B4623F', '#6E7F63', '#C09B45', '#8A4630',
+                '#4A5842', '#A9822F', '#C67C5B', '#746B5D'
+            ]
         };
 
         this.flagPatterns = {};
@@ -130,7 +139,7 @@ class FanChart {
     drawAncestorsFan(ancestors, maxGenerations) {
         // Group ancestors by generation
         const byGeneration = new Array(maxGenerations).fill(null).map(() => []);
-        
+
         for (const { individual, generation } of ancestors) {
             if (generation > 0 && generation < maxGenerations) {
                 byGeneration[generation].push(individual);
@@ -146,8 +155,8 @@ class FanChart {
             const outerRadius = innerRadius + this.config.radiusIncrement;
 
             // Calculate positions for this generation
-            const positions = this.calculateAncestorPositions(gen, maxGenerations);
-            
+            const positions = this.calculateAncestorPositions(gen, maxGenerations, this.config.fanAngle);
+
             individuals.forEach((individual, index) => {
                 if (index < positions.length) {
                     this.drawPersonSegment(
@@ -163,10 +172,10 @@ class FanChart {
         }
     }
 
-    calculateAncestorPositions(generation, maxGenerations) {
+    calculateAncestorPositions(generation, maxGenerations, fanAngleDeg) {
         // Each generation doubles the number of positions
         const numPositions = Math.pow(2, generation);
-        const fanAngleRad = (this.config.fanAngle * Math.PI) / 180;
+        const fanAngleRad = (fanAngleDeg * Math.PI) / 180;
         const anglePerPerson = fanAngleRad / numPositions;
 
         // Center the fan at 12 o'clock (-PI/2)
@@ -405,7 +414,7 @@ class FanChart {
         children.forEach((child, index) => {
             const startAngle = index * anglePerChild + Math.PI / 2;
             const endAngle = (index + 1) * anglePerChild + Math.PI / 2;
-            
+
             this.drawPersonSegment(child, startAngle, endAngle, innerRadius, outerRadius, -1);
         });
     }
@@ -452,8 +461,8 @@ class FanChart {
                 return 'url(#flag-' + code + ')';
             }
             return '#95A5A6';
-        } else if (scheme === 'generation') {
-            const colors = this.colorSchemes.generation;
+        } else if (Array.isArray(this.colorSchemes[scheme])) {
+            const colors = this.colorSchemes[scheme];
             const colorIndex = Math.abs(generation) % colors.length;
             return colors[colorIndex];
         } else {
