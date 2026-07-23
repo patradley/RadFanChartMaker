@@ -154,6 +154,10 @@ header p {
     border-color: #667eea;
 }
 
+.setting-group.hidden {
+    display: none;
+}
+
 .checkbox-group {
     flex-direction: row;
     align-items: center;

@@ -2,6 +2,7 @@
 let parser = null;
 let fanChart = null;
 let currentCenterPersonId = null;
+let currentSpousePersonId = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,6 +40,20 @@ function initializeEventListeners() {
     // Center person selection
     document.getElementById('center-person').addEventListener('change', (e) => {
         currentCenterPersonId = e.target.value;
+        currentSpousePersonId = null;
+        if (document.getElementById('show-descendants').checked) {
+            populateSpouseDropdown();
+        }
+    });
+
+    // Show descendants toggle reveals the spouse selector
+    document.getElementById('show-descendants').addEventListener('change', (e) => {
+        toggleSpouseSelector(e.target.checked);
+    });
+
+    // Spouse selection (makes the center circle represent a couple)
+    document.getElementById('spouse-person').addEventListener('change', (e) => {
+        currentSpousePersonId = e.target.value || null;
     });
 
     // Save chart button
@@ -93,9 +108,14 @@ function parseGedcom(gedcomText) {
 
         // Auto-select first person
         const select = document.getElementById('center-person');
+        currentSpousePersonId = null;
         if (select.options.length > 1) {
             select.selectedIndex = 1;
             currentCenterPersonId = select.value;
+        }
+
+        if (document.getElementById('show-descendants').checked) {
+            populateSpouseDropdown();
         }
 
         showNotification('GEDCOM file loaded successfully!', 'success');
@@ -123,6 +143,51 @@ function populateCenterPersonDropdown() {
         option.textContent = label;
         select.appendChild(option);
     });
+}
+
+function toggleSpouseSelector(show) {
+    const group = document.getElementById('spouse-group');
+
+    if (show) {
+        populateSpouseDropdown();
+        group.classList.remove('hidden');
+    } else {
+        group.classList.add('hidden');
+        currentSpousePersonId = null;
+        document.getElementById('spouse-person').value = '';
+    }
+}
+
+function populateSpouseDropdown() {
+    const select = document.getElementById('spouse-person');
+    select.innerHTML = '<option value="">None (show all children)</option>';
+
+    if (!parser || !currentCenterPersonId) {
+        select.disabled = true;
+        return;
+    }
+
+    const spouses = parser.getSpouses(currentCenterPersonId);
+    select.disabled = spouses.length === 0;
+
+    spouses.forEach(spouse => {
+        const option = document.createElement('option');
+        option.value = spouse.id;
+
+        let label = spouse.name || 'Unknown';
+        if (spouse.birth.year) {
+            label += ` (b. ${spouse.birth.year})`;
+        }
+
+        option.textContent = label;
+        select.appendChild(option);
+    });
+
+    if (currentSpousePersonId && spouses.some(s => s.id === currentSpousePersonId)) {
+        select.value = currentSpousePersonId;
+    } else {
+        currentSpousePersonId = null;
+    }
 }
 
 function generateChart() {
@@ -158,7 +223,8 @@ function generateChart() {
         colorScheme
     });
 
-    fanChart.generate(currentCenterPersonId, generations);
+    const spousePersonId = showDescendants ? currentSpousePersonId : null;
+    fanChart.generate(currentCenterPersonId, generations, spousePersonId);
 
     document.getElementById('download-svg').disabled = false;
     document.getElementById('save-chart').disabled = false;
@@ -249,7 +315,7 @@ function addDetailItem(container, label, value) {
     container.appendChild(div);
 }
 
-function collectRelevantData(centerPersonId, generations, includeDescendants) {
+function collectRelevantData(centerPersonId, generations, includeDescendants, spousePersonId) {
     const individualIds = new Set();
     const familyIds = new Set();
 
@@ -267,14 +333,23 @@ function collectRelevantData(centerPersonId, generations, includeDescendants) {
     if (includeDescendants) {
         const centerPerson = parser.individuals.get(centerPersonId);
         if (centerPerson) {
+            if (spousePersonId) individualIds.add(spousePersonId);
+
             for (const famId of centerPerson.familySpouse) {
-                familyIds.add(famId);
                 const family = parser.families.get(famId);
-                if (family) {
-                    for (const childId of family.children) {
-                        const child = parser.individuals.get(childId);
-                        if (child) individualIds.add(child.id);
-                    }
+                if (!family) continue;
+
+                const famSpouseId = family.husband === centerPersonId ? family.wife
+                    : family.wife === centerPersonId ? family.husband
+                    : null;
+
+                // When a spouse is selected, only that couple's family/children are included
+                if (spousePersonId && famSpouseId !== spousePersonId) continue;
+
+                familyIds.add(famId);
+                for (const childId of family.children) {
+                    const child = parser.individuals.get(childId);
+                    if (child) individualIds.add(child.id);
                 }
             }
         }
@@ -313,9 +388,10 @@ function saveChart() {
 
     const generations = parseInt(document.getElementById('generations').value);
     const showDescendants = document.getElementById('show-descendants').checked;
+    const spousePersonId = showDescendants ? currentSpousePersonId : null;
 
     const { individuals, families } = collectRelevantData(
-        currentCenterPersonId, generations, showDescendants
+        currentCenterPersonId, generations, showDescendants, spousePersonId
     );
 
     const saveData = {
@@ -330,7 +406,8 @@ function saveChart() {
             showBirthYear: document.getElementById('show-birth-year').checked,
             showDeathYear: document.getElementById('show-death-year').checked,
             showCountry: document.getElementById('show-country').checked,
-            showDescendants: showDescendants
+            showDescendants: showDescendants,
+            spousePersonId: spousePersonId
         },
         individuals: individuals,
         families: families
@@ -396,6 +473,17 @@ function handleLoadChart(event) {
             document.getElementById('generate-chart').disabled = false;
             document.getElementById('edit-data').disabled = false;
             document.getElementById('file-name').textContent = file.name;
+
+            // Restore spouse selection, if applicable
+            if (s && s.showDescendants) {
+                populateSpouseDropdown();
+                currentSpousePersonId = s.spousePersonId || null;
+                document.getElementById('spouse-person').value = currentSpousePersonId || '';
+                document.getElementById('spouse-group').classList.remove('hidden');
+            } else {
+                document.getElementById('spouse-group').classList.add('hidden');
+                currentSpousePersonId = null;
+            }
 
             // Generate chart
             generateChart();

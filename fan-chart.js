@@ -90,7 +90,7 @@ class FanChart {
         this.config = { ...this.config, ...newConfig };
     }
 
-    generate(centerPersonId, generations) {
+    generate(centerPersonId, generations, spousePersonId = null) {
         // Clear the SVG
         while (this.svg.firstChild) {
             this.svg.removeChild(this.svg.firstChild);
@@ -104,6 +104,8 @@ class FanChart {
             return;
         }
 
+        const spousePerson = spousePersonId ? this.parser.individuals.get(spousePersonId) : null;
+
         // Set SVG viewBox
         const size = 1200;
         this.svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
@@ -112,16 +114,16 @@ class FanChart {
 
         // Get ancestors
         const ancestors = this.parser.getAncestors(centerPersonId, generations);
-        
+
         // Draw ancestors fan chart
         this.drawAncestorsFan(ancestors, generations);
 
-        // Draw center person
-        this.drawCenterPerson(centerPerson);
+        // Draw center person (or couple, if a spouse is selected)
+        this.drawCenterPerson(centerPerson, spousePerson);
 
         // Draw descendants if enabled
         if (this.config.showDescendants) {
-            this.drawDescendantsFan(centerPerson);
+            this.drawDescendantsFan(centerPerson, spousePerson);
         }
     }
 
@@ -290,7 +292,12 @@ class FanChart {
         return textElement;
     }
 
-    drawCenterPerson(person) {
+    drawCenterPerson(person, spouse) {
+        if (spouse) {
+            this.drawCoupleCenter(person, spouse);
+            return;
+        }
+
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', this.config.centerX);
         circle.setAttribute('cy', this.config.centerY);
@@ -335,8 +342,60 @@ class FanChart {
         this.svg.appendChild(textElement);
     }
 
-    drawDescendantsFan(centerPerson) {
-        const children = this.parser.getChildren(centerPerson.id);
+    drawCoupleCenter(person, spouse) {
+        // Split the center circle in half: person on the left, spouse on the right
+        this.drawCenterHalf(person, Math.PI / 2, 3 * Math.PI / 2, -1);
+        this.drawCenterHalf(spouse, -Math.PI / 2, Math.PI / 2, 1);
+    }
+
+    drawCenterHalf(person, startAngle, endAngle, side) {
+        const path = this.createSegmentPath(startAngle, endAngle, 0, this.config.innerRadius);
+        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathElement.setAttribute('d', path);
+        pathElement.setAttribute('fill', this.getColor(person, 0));
+        pathElement.setAttribute('stroke', 'white');
+        pathElement.setAttribute('stroke-width', '4');
+        pathElement.style.cursor = 'pointer';
+        pathElement.addEventListener('click', () => this.onPersonClick(person));
+        this.svg.appendChild(pathElement);
+
+        const textX = this.config.centerX + side * this.config.innerRadius * 0.5;
+
+        const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        textElement.setAttribute('x', textX);
+        textElement.setAttribute('y', this.config.centerY);
+        textElement.setAttribute('text-anchor', 'middle');
+        textElement.setAttribute('dominant-baseline', 'middle');
+        textElement.setAttribute('font-size', this.config.fontSize * 1.1);
+        textElement.setAttribute('font-family', this.config.fontFamily);
+        textElement.setAttribute('fill', 'white');
+        textElement.setAttribute('font-weight', 'bold');
+        textElement.classList.add('person-text');
+
+        const name = this.shortenName(person.name) || 'Unknown';
+        const tspan1 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        tspan1.textContent = name;
+        tspan1.setAttribute('x', textX);
+        textElement.appendChild(tspan1);
+
+        if (person.birth.year || person.death.year) {
+            const tspan2 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            let years = '';
+            if (person.birth.year) years += person.birth.year;
+            if (person.death.year) years += '-' + person.death.year;
+            tspan2.textContent = years;
+            tspan2.setAttribute('x', textX);
+            tspan2.setAttribute('dy', this.config.fontSize * 1.4);
+            textElement.appendChild(tspan2);
+        }
+
+        this.svg.appendChild(textElement);
+    }
+
+    drawDescendantsFan(centerPerson, spouse) {
+        const children = spouse
+            ? this.parser.getChildrenOfCouple(centerPerson.id, spouse.id)
+            : this.parser.getChildren(centerPerson.id);
         if (children.length === 0) return;
 
         const innerRadius = this.config.innerRadius;
