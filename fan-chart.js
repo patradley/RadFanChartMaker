@@ -15,8 +15,7 @@ class FanChart {
             showDescendants: false,
             colorScheme: 'classic',
             fanAngle: 360,
-            descendantAngle: 90,
-            descendantGapAngle: 12
+            descendantAngle: 90
         };
         
         this.colorSchemes = {
@@ -49,6 +48,10 @@ class FanChart {
                 '#4A5842', '#A9822F', '#C67C5B', '#746B5D'
             ]
         };
+
+        // Fixed color for the "family" center label, independent of the color scheme
+        // (it represents a family unit, not an individual, so gender-based colors don't apply)
+        this.familyCenterColor = '#2C4A6E';
 
         this.flagPatterns = {};
         this.defs = null;
@@ -129,8 +132,8 @@ class FanChart {
         // Draw ancestors fan chart
         this.drawAncestorsFan(ancestors, generations);
 
-        // Draw center person (or couple, if a spouse is selected)
-        this.drawCenterPerson(centerPerson, spousePerson);
+        // Draw center person, or a plain family label when descendants are shown
+        this.drawCenterPerson(centerPerson);
 
         // Draw descendants if enabled
         if (this.config.showDescendants) {
@@ -148,9 +151,10 @@ class FanChart {
             }
         }
 
-        // Leave room for the descendants wedge below, plus a gap on each side, so the two fans never touch
+        // With descendants shown, ancestors are locked to a strict top semicircle so there's
+        // room left over (below, outside the narrower descendant wedge) for a gap between the two.
         const fanAngle = this.config.showDescendants
-            ? Math.min(this.config.fanAngle, 360 - this.config.descendantAngle - 2 * this.config.descendantGapAngle)
+            ? Math.min(this.config.fanAngle, 180)
             : this.config.fanAngle;
 
         // Draw each generation
@@ -308,9 +312,9 @@ class FanChart {
         return textElement;
     }
 
-    drawCenterPerson(person, spouse) {
-        if (spouse) {
-            this.drawCoupleCenter(person, spouse);
+    drawCenterPerson(person) {
+        if (this.config.showDescendants) {
+            this.drawFamilyCenter(person);
             return;
         }
 
@@ -358,54 +362,47 @@ class FanChart {
         this.svg.appendChild(textElement);
     }
 
-    drawCoupleCenter(person, spouse) {
-        // Split the center circle in half: person on the left, spouse on the right
-        this.drawCenterHalf(person, Math.PI / 2, 3 * Math.PI / 2, -1);
-        this.drawCenterHalf(spouse, -Math.PI / 2, Math.PI / 2, 1);
-    }
+    drawFamilyCenter(person) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', this.config.centerX);
+        circle.setAttribute('cy', this.config.centerY);
+        circle.setAttribute('r', this.config.innerRadius);
+        circle.setAttribute('fill', this.familyCenterColor);
+        circle.setAttribute('stroke', 'white');
+        circle.setAttribute('stroke-width', '4');
+        circle.style.cursor = 'pointer';
+        circle.addEventListener('click', () => this.onPersonClick(person));
 
-    drawCenterHalf(person, startAngle, endAngle, side) {
-        const path = this.createSegmentPath(startAngle, endAngle, 0, this.config.innerRadius);
-        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        pathElement.setAttribute('d', path);
-        pathElement.setAttribute('fill', this.getColor(person, 0));
-        pathElement.setAttribute('stroke', 'white');
-        pathElement.setAttribute('stroke-width', '4');
-        pathElement.style.cursor = 'pointer';
-        pathElement.addEventListener('click', () => this.onPersonClick(person));
-        this.svg.appendChild(pathElement);
-
-        const textX = this.config.centerX + side * this.config.innerRadius * 0.5;
+        this.svg.appendChild(circle);
 
         const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        textElement.setAttribute('x', textX);
+        textElement.setAttribute('x', this.config.centerX);
         textElement.setAttribute('y', this.config.centerY);
         textElement.setAttribute('text-anchor', 'middle');
         textElement.setAttribute('dominant-baseline', 'middle');
-        textElement.setAttribute('font-size', this.config.fontSize * 1.1);
+        textElement.setAttribute('font-size', this.config.fontSize * 1.3);
         textElement.setAttribute('font-family', this.config.fontFamily);
         textElement.setAttribute('fill', 'white');
         textElement.setAttribute('font-weight', 'bold');
         textElement.classList.add('person-text');
 
-        const name = this.shortenName(person.name) || 'Unknown';
-        const tspan1 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        tspan1.textContent = name;
-        tspan1.setAttribute('x', textX);
-        textElement.appendChild(tspan1);
-
-        if (person.birth.year || person.death.year) {
-            const tspan2 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-            let years = '';
-            if (person.birth.year) years += person.birth.year;
-            if (person.death.year) years += '-' + person.death.year;
-            tspan2.textContent = years;
-            tspan2.setAttribute('x', textX);
-            tspan2.setAttribute('dy', this.config.fontSize * 1.4);
-            textElement.appendChild(tspan2);
-        }
+        const lines = ['THE', this.getSurname(person).toUpperCase(), 'FAMILY'];
+        lines.forEach((line, index) => {
+            const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan.textContent = line;
+            tspan.setAttribute('x', this.config.centerX);
+            tspan.setAttribute('dy', index === 0 ? 0 : this.config.fontSize * 1.6);
+            textElement.appendChild(tspan);
+        });
 
         this.svg.appendChild(textElement);
+    }
+
+    getSurname(person) {
+        if (person.surname) return person.surname;
+        if (!person.name) return 'Unknown';
+        const parts = person.name.trim().split(/\s+/);
+        return parts[parts.length - 1];
     }
 
     drawDescendantsFan(centerPerson, spouse, generations) {
