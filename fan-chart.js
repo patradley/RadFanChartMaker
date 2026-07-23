@@ -130,7 +130,7 @@ class FanChart {
         const ancestors = this.parser.getAncestors(centerPersonId, generations);
 
         // Draw ancestors fan chart
-        this.drawAncestorsFan(ancestors, generations);
+        this.drawAncestorsFan(ancestors, generations, centerPerson, spousePerson);
 
         // Draw center person, or a plain family label when descendants are shown
         this.drawCenterPerson(centerPerson);
@@ -141,7 +141,7 @@ class FanChart {
         }
     }
 
-    drawAncestorsFan(ancestors, maxGenerations) {
+    drawAncestorsFan(ancestors, maxGenerations, centerPerson, spousePerson) {
         // Group ancestors by generation
         const byGeneration = new Array(maxGenerations).fill(null).map(() => []);
 
@@ -157,12 +157,21 @@ class FanChart {
             ? Math.min(this.config.fanAngle, 180)
             : this.config.fanAngle;
 
+        // Ring 1 (innermost, right around the center): the couple whose children are shown
+        // in the descendants fan below, so it's clear which family that wedge belongs to.
+        // Every ancestor generation shifts outward by one ring to make room for it.
+        const ringOffset = this.config.showDescendants ? 1 : 0;
+        if (this.config.showDescendants) {
+            this.drawAncestorCoupleRing(centerPerson, spousePerson, fanAngle);
+        }
+
         // Draw each generation
         for (let gen = 1; gen < maxGenerations; gen++) {
             const individuals = byGeneration[gen];
             if (individuals.length === 0) continue;
 
-            const innerRadius = this.config.innerRadius + (gen - 1) * this.config.radiusIncrement;
+            const ringIndex = gen + ringOffset;
+            const innerRadius = this.config.innerRadius + (ringIndex - 1) * this.config.radiusIncrement;
             const outerRadius = innerRadius + this.config.radiusIncrement;
 
             // Calculate positions for this generation
@@ -180,6 +189,21 @@ class FanChart {
                     );
                 }
             });
+        }
+    }
+
+    drawAncestorCoupleRing(person, spouse, fanAngleDeg) {
+        const innerRadius = this.config.innerRadius;
+        const outerRadius = innerRadius + this.config.radiusIncrement;
+        const fanAngleRad = (fanAngleDeg * Math.PI) / 180;
+        const startOffset = -Math.PI / 2 - fanAngleRad / 2;
+
+        if (spouse) {
+            const midOffset = startOffset + fanAngleRad / 2;
+            this.drawPersonSegment(person, startOffset, midOffset, innerRadius, outerRadius, 1);
+            this.drawPersonSegment(spouse, midOffset, startOffset + fanAngleRad, innerRadius, outerRadius, 1);
+        } else {
+            this.drawPersonSegment(person, startOffset, startOffset + fanAngleRad, innerRadius, outerRadius, 1);
         }
     }
 
