@@ -15,7 +15,11 @@ class FanChart {
             showDescendants: false,
             colorScheme: 'classic',
             fanAngle: 360,
-            descendantAngle: 160
+            descendantAngle: 160,
+            // Per-ring overrides for radial depth, keyed by 1-based ring index (the couple/first
+            // ancestor ring is 1, their parents are 2, etc). Rings without an entry fall back to
+            // radiusIncrement. e.g. { 3: 140 } gives ring 3 extra room for wrapped text.
+            ringDepths: {}
         };
         
         this.colorSchemes = {
@@ -104,6 +108,22 @@ class FanChart {
         this.config = { ...this.config, ...newConfig };
     }
 
+    // Radial depth of a given 1-based ring, honoring any per-ring override in config.ringDepths
+    getRingDepth(ringIndex) {
+        const override = this.config.ringDepths[ringIndex];
+        return override != null ? override : this.config.radiusIncrement;
+    }
+
+    // Inner/outer radius of a given 1-based ring, accounting for any rings before it
+    // that have a custom depth (ancestors and descendants share this same ring numbering).
+    getRingRadius(ringIndex) {
+        let innerRadius = this.config.innerRadius;
+        for (let i = 1; i < ringIndex; i++) {
+            innerRadius += this.getRingDepth(i);
+        }
+        return { innerRadius, outerRadius: innerRadius + this.getRingDepth(ringIndex) };
+    }
+
     generate(centerPersonId, generations, spousePersonId = null) {
         // Clear the SVG
         while (this.svg.firstChild) {
@@ -119,6 +139,13 @@ class FanChart {
         }
 
         const spousePerson = spousePersonId ? this.parser.individuals.get(spousePersonId) : null;
+
+        // Hidden helper element for measuring real text width during word-wrap
+        this.measureEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        this.measureEl.setAttribute('font-family', this.config.fontFamily);
+        this.measureEl.setAttribute('font-weight', 'bold');
+        this.measureEl.style.visibility = 'hidden';
+        this.svg.appendChild(this.measureEl);
 
         // Set SVG viewBox
         const size = 1200;
@@ -139,6 +166,9 @@ class FanChart {
         if (this.config.showDescendants) {
             this.drawDescendantsFan(centerPerson, spousePerson, generations);
         }
+
+        this.svg.removeChild(this.measureEl);
+        this.measureEl = null;
     }
 
     drawAncestorsFan(ancestors, maxGenerations, centerPerson, spousePerson) {
@@ -171,8 +201,7 @@ class FanChart {
             if (individuals.length === 0) continue;
 
             const ringIndex = gen + ringOffset;
-            const innerRadius = this.config.innerRadius + (ringIndex - 1) * this.config.radiusIncrement;
-            const outerRadius = innerRadius + this.config.radiusIncrement;
+            const { innerRadius, outerRadius } = this.getRingRadius(ringIndex);
 
             // Calculate positions for this generation
             const positions = this.calculateAncestorPositions(gen, maxGenerations, fanAngle);
@@ -193,8 +222,7 @@ class FanChart {
     }
 
     drawAncestorCoupleRing(person, spouse, fanAngleDeg) {
-        const innerRadius = this.config.innerRadius;
-        const outerRadius = innerRadius + this.config.radiusIncrement;
+        const { innerRadius, outerRadius } = this.getRingRadius(1);
         const fanAngleRad = (fanAngleDeg * Math.PI) / 180;
         const startOffset = -Math.PI / 2 - fanAngleRad / 2;
 
@@ -285,6 +313,45 @@ class FanChart {
         return yearLine;
     }
 
+    // Real rendered width of a string at a given font size, via a hidden offscreen text element
+    measureTextWidth(text, fontSize) {
+        this.measureEl.setAttribute('font-size', fontSize);
+        this.measureEl.textContent = text;
+        return this.measureEl.getComputedTextLength();
+    }
+
+    // Greedy word-wrap: keep adding words to a line until the next one would overflow maxWidth
+    wrapLine(text, maxWidth, fontSize) {
+        if (!text) return [];
+
+        const words = text.split(' ');
+        const lines = [];
+        let current = '';
+
+        for (const word of words) {
+            const candidate = current ? `${current} ${word}` : word;
+            if (current && this.measureTextWidth(candidate, fontSize) > maxWidth) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = candidate;
+            }
+        }
+        if (current) lines.push(current);
+
+        return lines;
+    }
+
+    truncateWithEllipsis(text, maxWidth, fontSize) {
+        if (this.measureTextWidth(text, fontSize) <= maxWidth) return text;
+
+        let truncated = text;
+        while (truncated.length > 1 && this.measureTextWidth(truncated + '…', fontSize) > maxWidth) {
+            truncated = truncated.slice(0, -1);
+        }
+        return truncated + '…';
+    }
+
     createPersonText(person, startAngle, endAngle, innerRadius, outerRadius, spouse = null) {
         const midAngle = (startAngle + endAngle) / 2;
         const midRadius = (innerRadius + outerRadius) / 2;
@@ -322,29 +389,41 @@ class FanChart {
         }
         textElement.setAttribute('transform', `rotate(${rotation} ${x} ${y})`);
 
+        // Word-wrap against whichever dimension is this orientation's "reading" direction -
+        // arc width when tangential, ring depth when radial - leaving a small margin.
+        const maxTextWidth = (arcWidth < radialDepth ? radialDepth : arcWidth) * 0.85;
+
         // Build text content
-        let lines = [];
+        const rawLines = [];
 
         // Name (and spouse's name, if this segment represents a married couple)
         const name = spouse
             ? [this.shortenName(person.name), this.shortenName(spouse.name)].filter(Boolean).join(' & ')
             : this.shortenName(person.name);
-        if (name) lines.push(name);
+        if (name) rawLines.push(name);
 
         // Years (both spouses' if paired)
         const yearLine = spouse
             ? [this.formatYearLine(person), this.formatYearLine(spouse)].filter(Boolean).join(' / ')
             : this.formatYearLine(person);
-        if (yearLine) lines.push(yearLine);
+        if (yearLine) rawLines.push(yearLine);
 
         // Country
         if (this.config.showCountry) {
             const country = person.birth.country || person.death.country;
-            if (country) lines.push(country);
+            if (country) rawLines.push(country);
         }
 
-        // Add tspan elements for multi-line text
-        if (lines.length === 0) return null;
+        if (rawLines.length === 0) return null;
+
+        let lines = rawLines.flatMap(line => this.wrapLine(line, maxTextWidth, this.config.fontSize));
+
+        // Cap total lines so a pathologically long label can't run off the segment forever
+        const MAX_LINES = 4;
+        if (lines.length > MAX_LINES) {
+            lines = lines.slice(0, MAX_LINES);
+            lines[MAX_LINES - 1] = this.truncateWithEllipsis(lines[MAX_LINES - 1], maxTextWidth, this.config.fontSize);
+        }
 
         lines.forEach((line, index) => {
             const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -466,8 +545,7 @@ class FanChart {
     drawDescendantGeneration(people, startAngle, endAngle, genIndex, maxGenerations) {
         if (people.length === 0 || genIndex >= maxGenerations) return;
 
-        const innerRadius = this.config.innerRadius + (genIndex - 1) * this.config.radiusIncrement;
-        const outerRadius = innerRadius + this.config.radiusIncrement;
+        const { innerRadius, outerRadius } = this.getRingRadius(genIndex);
         const anglePerPerson = (endAngle - startAngle) / people.length;
 
         people.forEach((person, index) => {
