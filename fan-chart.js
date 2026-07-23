@@ -15,7 +15,7 @@ class FanChart {
             showDescendants: false,
             colorScheme: 'classic',
             fanAngle: 360,
-            descendantAngle: 90
+            descendantAngle: 160
         };
         
         this.colorSchemes = {
@@ -202,10 +202,10 @@ class FanChart {
         return positions;
     }
 
-    drawPersonSegment(person, startAngle, endAngle, innerRadius, outerRadius, generation) {
+    drawPersonSegment(person, startAngle, endAngle, innerRadius, outerRadius, generation, spouse = null) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.classList.add('person-segment');
-        
+
         // Draw the segment path
         const path = this.createSegmentPath(startAngle, endAngle, innerRadius, outerRadius);
         const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -213,14 +213,14 @@ class FanChart {
         pathElement.setAttribute('fill', this.getColor(person, generation));
         pathElement.setAttribute('stroke', 'white');
         pathElement.setAttribute('stroke-width', '2');
-        
+
         // Add click handler
         pathElement.addEventListener('click', () => this.onPersonClick(person));
-        
+
         group.appendChild(pathElement);
 
         // Add text
-        const textElement = this.createPersonText(person, startAngle, endAngle, innerRadius, outerRadius);
+        const textElement = this.createPersonText(person, startAngle, endAngle, innerRadius, outerRadius, spouse);
         if (textElement) {
             group.appendChild(textElement);
         }
@@ -250,7 +250,18 @@ class FanChart {
         `;
     }
 
-    createPersonText(person, startAngle, endAngle, innerRadius, outerRadius) {
+    formatYearLine(person) {
+        let yearLine = '';
+        if (this.config.showBirthYear && person.birth.year) {
+            yearLine += person.birth.year;
+        }
+        if (this.config.showDeathYear && person.death.year) {
+            yearLine += (yearLine ? '-' : 'd.') + person.death.year;
+        }
+        return yearLine;
+    }
+
+    createPersonText(person, startAngle, endAngle, innerRadius, outerRadius, spouse = null) {
         const midAngle = (startAngle + endAngle) / 2;
         const midRadius = (innerRadius + outerRadius) / 2;
         
@@ -277,19 +288,17 @@ class FanChart {
 
         // Build text content
         let lines = [];
-        
-        // Name
-        const name = this.shortenName(person.name);
+
+        // Name (and spouse's name, if this segment represents a married couple)
+        const name = spouse
+            ? [this.shortenName(person.name), this.shortenName(spouse.name)].filter(Boolean).join(' & ')
+            : this.shortenName(person.name);
         if (name) lines.push(name);
 
-        // Years
-        let yearLine = '';
-        if (this.config.showBirthYear && person.birth.year) {
-            yearLine += person.birth.year;
-        }
-        if (this.config.showDeathYear && person.death.year) {
-            yearLine += (yearLine ? '-' : 'd.') + person.death.year;
-        }
+        // Years (both spouses' if paired)
+        const yearLine = spouse
+            ? [this.formatYearLine(person), this.formatYearLine(spouse)].filter(Boolean).join(' / ')
+            : this.formatYearLine(person);
         if (yearLine) lines.push(yearLine);
 
         // Country
@@ -429,9 +438,12 @@ class FanChart {
             const personStart = startAngle + index * anglePerPerson;
             const personEnd = personStart + anglePerPerson;
 
-            this.drawPersonSegment(person, personStart, personEnd, innerRadius, outerRadius, -genIndex);
-
             const grandchildren = this.parser.getChildren(person.id);
+            // Married with kids: show the segment as a couple, not just the one person
+            const spouses = grandchildren.length > 0 ? this.parser.getSpouses(person.id) : [];
+            const spouse = spouses.length > 0 ? spouses[0] : null;
+
+            this.drawPersonSegment(person, personStart, personEnd, innerRadius, outerRadius, -genIndex, spouse);
             this.drawDescendantGeneration(grandchildren, personStart, personEnd, genIndex + 1, maxGenerations);
         });
     }
