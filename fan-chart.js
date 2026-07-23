@@ -132,7 +132,7 @@ class FanChart {
 
         // Draw descendants if enabled
         if (this.config.showDescendants) {
-            this.drawDescendantsFan(centerPerson, spousePerson);
+            this.drawDescendantsFan(centerPerson, spousePerson, generations);
         }
     }
 
@@ -401,13 +401,15 @@ class FanChart {
         this.svg.appendChild(textElement);
     }
 
-    drawDescendantsFan(centerPerson, spouse) {
+    drawDescendantsFan(centerPerson, spouse, generations) {
         const children = spouse
             ? this.parser.getChildrenOfCouple(centerPerson.id, spouse.id)
             : this.parser.getChildren(centerPerson.id);
         if (children.length === 0) return;
 
-        const innerRadius = this.config.innerRadius;
+        // Sit just outside the deepest ancestor ring so descendants never overlap ancestors
+        const ancestorRings = Math.max(generations - 1, 0);
+        const innerRadius = this.config.innerRadius + ancestorRings * this.config.radiusIncrement;
         const outerRadius = innerRadius + this.config.radiusIncrement;
         const anglePerChild = (2 * Math.PI) / children.length;
 
