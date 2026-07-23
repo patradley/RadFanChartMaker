@@ -303,10 +303,22 @@ class FanChart {
         textElement.setAttribute('fill', 'white');
         textElement.setAttribute('font-weight', 'bold');
 
-        // Calculate rotation to align with segment
-        let rotation = (midAngle * 180 / Math.PI) + 90;
-        if (rotation > 90 && rotation < 270) {
-            rotation += 180;
+        // Slices narrower (tangentially) than they are deep (radially) read better running
+        // outward along the radius than curving around the arc - flip orientation for those.
+        const arcWidth = (endAngle - startAngle) * midRadius;
+        const radialDepth = outerRadius - innerRadius;
+
+        let rotation;
+        if (arcWidth < radialDepth) {
+            rotation = midAngle * 180 / Math.PI;
+            if (Math.cos(midAngle) < 0) {
+                rotation += 180;
+            }
+        } else {
+            rotation = (midAngle * 180 / Math.PI) + 90;
+            if (rotation > 90 && rotation < 270) {
+                rotation += 180;
+            }
         }
         textElement.setAttribute('transform', `rotate(${rotation} ${x} ${y})`);
 
