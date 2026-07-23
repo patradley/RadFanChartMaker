@@ -15,7 +15,8 @@ class FanChart {
             showDescendants: false,
             colorScheme: 'classic',
             fanAngle: 360,
-            descendantAngle: 90
+            descendantAngle: 90,
+            descendantGapAngle: 12
         };
         
         this.colorSchemes = {
@@ -147,9 +148,9 @@ class FanChart {
             }
         }
 
-        // Leave room for the descendants wedge below so the two fans never overlap
+        // Leave room for the descendants wedge below, plus a gap on each side, so the two fans never touch
         const fanAngle = this.config.showDescendants
-            ? Math.min(this.config.fanAngle, 360 - this.config.descendantAngle)
+            ? Math.min(this.config.fanAngle, 360 - this.config.descendantAngle - 2 * this.config.descendantGapAngle)
             : this.config.fanAngle;
 
         // Draw each generation
