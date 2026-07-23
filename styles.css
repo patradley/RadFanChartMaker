@@ -128,11 +128,25 @@ body {
 }
 
 header {
+    position: relative;
     background: var(--paper-0);
     border-bottom: 1px solid var(--border);
     color: var(--text-heading);
     padding: var(--space-8) 30px;
     text-align: center;
+}
+
+.version-badge {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-5);
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 999px;
 }
 
 header .eyebrow {
