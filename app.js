@@ -74,14 +74,14 @@ function initializeEventListeners() {
         document.getElementById('person-details').classList.add('hidden');
     });
 
-    // Listen for person selection in the chart
+    // Listen for person selection (the center circle still shows a read-only details panel)
     const svg = document.getElementById('fan-chart');
     svg.addEventListener('personSelected', (e) => {
         showPersonDetails(e.detail);
     });
 
-    // Right-click a slice to edit its text/font
-    svg.addEventListener('segmentContextMenu', (e) => {
+    // Click a slice to edit its text/font
+    svg.addEventListener('segmentEdit', (e) => {
         openSegmentEditor(e.detail);
     });
 

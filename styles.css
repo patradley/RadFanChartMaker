@@ -502,7 +502,7 @@ header p {
     justify-content: flex-end;
 }
 
-/* Segment Editor (right-click on a chart slice) */
+/* Segment Editor (click a chart slice) */
 .segment-editor {
     position: fixed;
     width: 280px;

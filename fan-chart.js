@@ -58,7 +58,7 @@ class FanChart {
         this.familyCenterColor = '#2C4A6E';
 
         // Per-person manual overrides (custom text and/or font), keyed by individual id.
-        // Set via the segment right-click editor; { text, fontFamily, fontSize }.
+        // Set via the segment click editor; { text, fontFamily, fontSize }.
         this.segmentOverrides = new Map();
 
         this.flagPatterns = {};
@@ -294,13 +294,9 @@ class FanChart {
         pathElement.setAttribute('stroke', 'white');
         pathElement.setAttribute('stroke-width', '2');
 
-        // Add click handler
-        pathElement.addEventListener('click', () => this.onPersonClick(person));
-
-        // Right-click opens the segment editor (custom text/font override)
-        pathElement.addEventListener('contextmenu', (event) => {
-            event.preventDefault();
-            this.onSegmentContextMenu(event, person, spouse);
+        // Click opens the segment editor (custom text/font override)
+        pathElement.addEventListener('click', (event) => {
+            this.onSegmentClick(event, person, spouse);
         });
 
         group.appendChild(pathElement);
@@ -683,7 +679,7 @@ class FanChart {
         this.svg.dispatchEvent(event);
     }
 
-    onSegmentContextMenu(event, person, spouse) {
+    onSegmentClick(event, person, spouse) {
         const detail = {
             person,
             spouse,
@@ -692,7 +688,7 @@ class FanChart {
             override: this.getSegmentOverride(person.id),
             defaultText: this.getDefaultLines(person, spouse).join('\n')
         };
-        this.svg.dispatchEvent(new CustomEvent('segmentContextMenu', { detail }));
+        this.svg.dispatchEvent(new CustomEvent('segmentEdit', { detail }));
     }
 
     exportSVG() {
