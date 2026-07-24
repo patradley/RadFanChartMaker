@@ -3,6 +3,7 @@ let parser = null;
 let fanChart = null;
 let currentCenterPersonId = null;
 let currentSpousePersonId = null;
+let currentEditingPersonId = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -78,6 +79,97 @@ function initializeEventListeners() {
     svg.addEventListener('personSelected', (e) => {
         showPersonDetails(e.detail);
     });
+
+    // Right-click a slice to edit its text/font
+    svg.addEventListener('segmentContextMenu', (e) => {
+        openSegmentEditor(e.detail);
+    });
+
+    initializeSegmentEditor();
+}
+
+function initializeSegmentEditor() {
+    // Reuse the same font list as the main settings panel
+    document.getElementById('segment-editor-font-family').innerHTML =
+        document.getElementById('font-family').innerHTML;
+
+    document.getElementById('segment-editor-font-size').addEventListener('input', (e) => {
+        document.getElementById('segment-editor-font-size-value').textContent = e.target.value + 'px';
+    });
+
+    document.getElementById('segment-editor-close').addEventListener('click', closeSegmentEditor);
+    document.getElementById('segment-editor-cancel').addEventListener('click', closeSegmentEditor);
+
+    document.getElementById('segment-editor-apply').addEventListener('click', () => {
+        if (!fanChart || !currentEditingPersonId) return;
+
+        fanChart.setSegmentOverride(currentEditingPersonId, {
+            text: document.getElementById('segment-editor-text').value,
+            fontFamily: document.getElementById('segment-editor-font-family').value,
+            fontSize: parseInt(document.getElementById('segment-editor-font-size').value)
+        });
+        closeSegmentEditor();
+        generateChart();
+    });
+
+    document.getElementById('segment-editor-reset').addEventListener('click', () => {
+        if (!fanChart || !currentEditingPersonId) return;
+
+        fanChart.clearSegmentOverride(currentEditingPersonId);
+        closeSegmentEditor();
+        generateChart();
+    });
+
+    // Dismiss like a normal context menu: click elsewhere, or press Escape
+    document.addEventListener('mousedown', (e) => {
+        const panel = document.getElementById('segment-editor');
+        if (!panel.classList.contains('hidden') && !panel.contains(e.target)) {
+            closeSegmentEditor();
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeSegmentEditor();
+    });
+}
+
+function openSegmentEditor(detail) {
+    const { person, spouse, clientX, clientY, override, defaultText } = detail;
+    currentEditingPersonId = person.id;
+
+    document.getElementById('segment-editor-title').textContent =
+        'Edit: ' + (person.name || 'Unknown') + (spouse ? ' & ' + (spouse.name || 'Unknown') : '');
+
+    document.getElementById('segment-editor-text').value =
+        override && override.text != null ? override.text : defaultText;
+
+    const fontFamily = (override && override.fontFamily) || document.getElementById('font-family').value;
+    document.getElementById('segment-editor-font-family').value = fontFamily;
+
+    const fontSize = (override && override.fontSize) || parseInt(document.getElementById('font-size').value);
+    document.getElementById('segment-editor-font-size').value = fontSize;
+    document.getElementById('segment-editor-font-size-value').textContent = fontSize + 'px';
+
+    const panel = document.getElementById('segment-editor');
+    panel.classList.remove('hidden');
+    positionSegmentEditor(panel, clientX, clientY);
+}
+
+function closeSegmentEditor() {
+    document.getElementById('segment-editor').classList.add('hidden');
+    currentEditingPersonId = null;
+}
+
+function positionSegmentEditor(panel, clientX, clientY) {
+    // Show it, then measure and clamp so it never runs off the viewport
+    panel.style.left = clientX + 'px';
+    panel.style.top = clientY + 'px';
+
+    const rect = panel.getBoundingClientRect();
+    const maxLeft = window.innerWidth - rect.width - 8;
+    const maxTop = window.innerHeight - rect.height - 8;
+
+    panel.style.left = Math.max(8, Math.min(clientX, maxLeft)) + 'px';
+    panel.style.top = Math.max(8, Math.min(clientY, maxTop)) + 'px';
 }
 
 function handleFileUpload(event) {
@@ -102,7 +194,10 @@ function parseGedcom(gedcomText) {
         console.log(`Parsed ${result.individuals.size} individuals and ${result.families.size} families`);
 
         populateCenterPersonDropdown();
-        
+
+        // A fresh GEDCOM has its own individual ids - any overrides from a prior file no longer apply
+        if (fanChart) fanChart.clearAllSegmentOverrides();
+
         document.getElementById('generate-chart').disabled = false;
         document.getElementById('edit-data').disabled = false;
 
@@ -210,6 +305,9 @@ function generateChart() {
     
     if (!fanChart) {
         fanChart = new FanChart(svg, parser);
+    } else {
+        // A new parser (fresh upload or loaded save) may have replaced the old one
+        fanChart.parser = parser;
     }
 
     fanChart.updateConfig({
@@ -410,7 +508,8 @@ function saveChart() {
             spousePersonId: spousePersonId
         },
         individuals: individuals,
-        families: families
+        families: families,
+        segmentOverrides: fanChart ? fanChart.exportSegmentOverrides() : {}
     };
 
     const json = JSON.stringify(saveData, null, 2);
@@ -449,6 +548,16 @@ function handleLoadChart(event) {
             parser.loadFromData(saveData.individuals, saveData.families);
 
             populateCenterPersonDropdown();
+
+            // Ensure a chart instance is bound to the new parser before restoring overrides,
+            // so generateChart() below renders with them already in place (single render)
+            const svg = document.getElementById('fan-chart');
+            if (!fanChart) {
+                fanChart = new FanChart(svg, parser);
+            } else {
+                fanChart.parser = parser;
+            }
+            fanChart.importSegmentOverrides(saveData.segmentOverrides || {});
 
             // Restore settings to UI
             const s = saveData.settings;

@@ -159,6 +159,28 @@
             </div>
             <div class="details-content"></div>
         </div>
+
+        <div id="segment-editor" class="segment-editor hidden">
+            <div class="segment-editor-header">
+                <h4 id="segment-editor-title">Edit Segment</h4>
+                <button id="segment-editor-close" class="close-btn">&times;</button>
+            </div>
+            <div class="segment-editor-body">
+                <label for="segment-editor-text">Text</label>
+                <textarea id="segment-editor-text" rows="3"></textarea>
+
+                <label for="segment-editor-font-family">Font</label>
+                <select id="segment-editor-font-family"></select>
+
+                <label for="segment-editor-font-size">Font Size: <span id="segment-editor-font-size-value"></span></label>
+                <input type="range" id="segment-editor-font-size" min="6" max="30">
+            </div>
+            <div class="segment-editor-footer">
+                <button id="segment-editor-apply" class="btn btn-success btn-sm">Apply</button>
+                <button id="segment-editor-reset" class="btn btn-secondary btn-sm">Reset to Automatic</button>
+                <button id="segment-editor-cancel" class="btn btn-secondary btn-sm">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <script src="gedcom-parser.js"></script>

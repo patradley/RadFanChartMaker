@@ -502,6 +502,91 @@ header p {
     justify-content: flex-end;
 }
 
+/* Segment Editor (right-click on a chart slice) */
+.segment-editor {
+    position: fixed;
+    width: 280px;
+    background: var(--surface-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    z-index: 4000;
+}
+
+.segment-editor.hidden {
+    display: none;
+}
+
+.segment-editor-header {
+    background: var(--surface-raised);
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.segment-editor-header h4 {
+    margin: 0;
+    font: 500 var(--fs-h3)/1.2 var(--font-serif);
+    color: var(--text-heading);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.segment-editor-body {
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.segment-editor-body label {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    margin-top: var(--space-2);
+}
+
+.segment-editor-body textarea,
+.segment-editor-body select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+    font-family: var(--font-sans);
+    background: var(--surface-card);
+    color: var(--text-body);
+    resize: vertical;
+}
+
+.segment-editor-body textarea:focus,
+.segment-editor-body select:focus {
+    outline: none;
+    border-color: var(--focus-ring);
+    box-shadow: 0 0 0 3px rgba(198, 124, 91, 0.25);
+}
+
+.segment-editor-body input[type="range"] {
+    width: 100%;
+}
+
+.segment-editor-footer {
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: var(--fs-xs);
+}
+
 /* SVG Styles */
 .person-segment {
     cursor: pointer;

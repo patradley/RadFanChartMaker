@@ -57,6 +57,10 @@ class FanChart {
         // (it represents a family unit, not an individual, so gender-based colors don't apply)
         this.familyCenterColor = '#2C4A6E';
 
+        // Per-person manual overrides (custom text and/or font), keyed by individual id.
+        // Set via the segment right-click editor; { text, fontFamily, fontSize }.
+        this.segmentOverrides = new Map();
+
         this.flagPatterns = {};
         this.defs = null;
 
@@ -122,6 +126,30 @@ class FanChart {
             innerRadius += this.getRingDepth(i);
         }
         return { innerRadius, outerRadius: innerRadius + this.getRingDepth(ringIndex) };
+    }
+
+    setSegmentOverride(personId, override) {
+        this.segmentOverrides.set(personId, { ...override });
+    }
+
+    clearSegmentOverride(personId) {
+        this.segmentOverrides.delete(personId);
+    }
+
+    getSegmentOverride(personId) {
+        return this.segmentOverrides.get(personId) || null;
+    }
+
+    clearAllSegmentOverrides() {
+        this.segmentOverrides.clear();
+    }
+
+    exportSegmentOverrides() {
+        return Object.fromEntries(this.segmentOverrides);
+    }
+
+    importSegmentOverrides(data) {
+        this.segmentOverrides = new Map(Object.entries(data || {}));
     }
 
     generate(centerPersonId, generations, spousePersonId = null) {
@@ -269,6 +297,12 @@ class FanChart {
         // Add click handler
         pathElement.addEventListener('click', () => this.onPersonClick(person));
 
+        // Right-click opens the segment editor (custom text/font override)
+        pathElement.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            this.onSegmentContextMenu(event, person, spouse);
+        });
+
         group.appendChild(pathElement);
 
         // Add text
@@ -313,15 +347,16 @@ class FanChart {
         return yearLine;
     }
 
-    // Real rendered width of a string at a given font size, via a hidden offscreen text element
-    measureTextWidth(text, fontSize) {
+    // Real rendered width of a string at a given font, via a hidden offscreen text element
+    measureTextWidth(text, fontSize, fontFamily) {
         this.measureEl.setAttribute('font-size', fontSize);
+        this.measureEl.setAttribute('font-family', fontFamily);
         this.measureEl.textContent = text;
         return this.measureEl.getComputedTextLength();
     }
 
     // Greedy word-wrap: keep adding words to a line until the next one would overflow maxWidth
-    wrapLine(text, maxWidth, fontSize) {
+    wrapLine(text, maxWidth, fontSize, fontFamily) {
         if (!text) return [];
 
         const words = text.split(' ');
@@ -330,7 +365,7 @@ class FanChart {
 
         for (const word of words) {
             const candidate = current ? `${current} ${word}` : word;
-            if (current && this.measureTextWidth(candidate, fontSize) > maxWidth) {
+            if (current && this.measureTextWidth(candidate, fontSize, fontFamily) > maxWidth) {
                 lines.push(current);
                 current = word;
             } else {
@@ -342,22 +377,50 @@ class FanChart {
         return lines;
     }
 
-    truncateWithEllipsis(text, maxWidth, fontSize) {
-        if (this.measureTextWidth(text, fontSize) <= maxWidth) return text;
+    truncateWithEllipsis(text, maxWidth, fontSize, fontFamily) {
+        if (this.measureTextWidth(text, fontSize, fontFamily) <= maxWidth) return text;
 
         let truncated = text;
-        while (truncated.length > 1 && this.measureTextWidth(truncated + '…', fontSize) > maxWidth) {
+        while (truncated.length > 1 && this.measureTextWidth(truncated + '…', fontSize, fontFamily) > maxWidth) {
             truncated = truncated.slice(0, -1);
         }
         return truncated + '…';
     }
 
+    // The auto-generated lines for a segment (before any manual override), also used to
+    // pre-fill the segment editor so edits start from what's currently shown.
+    getDefaultLines(person, spouse) {
+        const lines = [];
+
+        const name = spouse
+            ? [this.shortenName(person.name), this.shortenName(spouse.name)].filter(Boolean).join(' & ')
+            : this.shortenName(person.name);
+        if (name) lines.push(name);
+
+        const yearLine = spouse
+            ? [this.formatYearLine(person), this.formatYearLine(spouse)].filter(Boolean).join(' / ')
+            : this.formatYearLine(person);
+        if (yearLine) lines.push(yearLine);
+
+        if (this.config.showCountry) {
+            const country = person.birth.country || person.death.country;
+            if (country) lines.push(country);
+        }
+
+        return lines;
+    }
+
     createPersonText(person, startAngle, endAngle, innerRadius, outerRadius, spouse = null) {
         const midAngle = (startAngle + endAngle) / 2;
         const midRadius = (innerRadius + outerRadius) / 2;
-        
+
         const x = this.config.centerX + midRadius * Math.cos(midAngle);
         const y = this.config.centerY + midRadius * Math.sin(midAngle);
+
+        // A manual override can replace the auto-generated text and/or font for this person
+        const override = this.getSegmentOverride(person.id);
+        const fontFamily = (override && override.fontFamily) || this.config.fontFamily;
+        const fontSize = (override && override.fontSize) || this.config.fontSize;
 
         const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         textElement.classList.add('person-text');
@@ -365,8 +428,8 @@ class FanChart {
         textElement.setAttribute('y', y);
         textElement.setAttribute('text-anchor', 'middle');
         textElement.setAttribute('dominant-baseline', 'middle');
-        textElement.setAttribute('font-size', this.config.fontSize);
-        textElement.setAttribute('font-family', this.config.fontFamily);
+        textElement.setAttribute('font-size', fontSize);
+        textElement.setAttribute('font-family', fontFamily);
         textElement.setAttribute('fill', 'white');
         textElement.setAttribute('font-weight', 'bold');
 
@@ -393,43 +456,28 @@ class FanChart {
         // arc width when tangential, ring depth when radial - leaving a small margin.
         const maxTextWidth = (arcWidth < radialDepth ? radialDepth : arcWidth) * 0.85;
 
-        // Build text content
-        const rawLines = [];
-
-        // Name (and spouse's name, if this segment represents a married couple)
-        const name = spouse
-            ? [this.shortenName(person.name), this.shortenName(spouse.name)].filter(Boolean).join(' & ')
-            : this.shortenName(person.name);
-        if (name) rawLines.push(name);
-
-        // Years (both spouses' if paired)
-        const yearLine = spouse
-            ? [this.formatYearLine(person), this.formatYearLine(spouse)].filter(Boolean).join(' / ')
-            : this.formatYearLine(person);
-        if (yearLine) rawLines.push(yearLine);
-
-        // Country
-        if (this.config.showCountry) {
-            const country = person.birth.country || person.death.country;
-            if (country) rawLines.push(country);
-        }
+        // An override with blank text means "show nothing here"; otherwise its lines replace
+        // the auto-generated ones entirely (rather than just replacing the name).
+        const rawLines = override && override.text != null
+            ? (override.text.trim() === '' ? [] : override.text.split('\n'))
+            : this.getDefaultLines(person, spouse);
 
         if (rawLines.length === 0) return null;
 
-        let lines = rawLines.flatMap(line => this.wrapLine(line, maxTextWidth, this.config.fontSize));
+        let lines = rawLines.flatMap(line => this.wrapLine(line, maxTextWidth, fontSize, fontFamily));
 
         // Cap total lines so a pathologically long label can't run off the segment forever
         const MAX_LINES = 4;
         if (lines.length > MAX_LINES) {
             lines = lines.slice(0, MAX_LINES);
-            lines[MAX_LINES - 1] = this.truncateWithEllipsis(lines[MAX_LINES - 1], maxTextWidth, this.config.fontSize);
+            lines[MAX_LINES - 1] = this.truncateWithEllipsis(lines[MAX_LINES - 1], maxTextWidth, fontSize, fontFamily);
         }
 
         lines.forEach((line, index) => {
             const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
             tspan.textContent = line;
             tspan.setAttribute('x', x);
-            tspan.setAttribute('dy', index === 0 ? 0 : this.config.fontSize * 1.2);
+            tspan.setAttribute('dy', index === 0 ? 0 : fontSize * 1.2);
             textElement.appendChild(tspan);
         });
 
@@ -629,10 +677,22 @@ class FanChart {
 
 
     onPersonClick(person) {
-        const event = new CustomEvent('personSelected', { 
-            detail: person 
+        const event = new CustomEvent('personSelected', {
+            detail: person
         });
         this.svg.dispatchEvent(event);
+    }
+
+    onSegmentContextMenu(event, person, spouse) {
+        const detail = {
+            person,
+            spouse,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            override: this.getSegmentOverride(person.id),
+            defaultText: this.getDefaultLines(person, spouse).join('\n')
+        };
+        this.svg.dispatchEvent(new CustomEvent('segmentContextMenu', { detail }));
     }
 
     exportSVG() {
